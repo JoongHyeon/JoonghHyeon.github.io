@@ -1,111 +1,138 @@
 document.addEventListener('DOMContentLoaded', () => {
-    loadLottoData();
-});
-
-function loadLottoData() {
     fetch('data/lotto_numbers.json')
         .then(response => response.json())
-        .then(data => {
-            window.lottoData = data;
-            analyzeLottoData(data);
-            displayMultipleRecommendedNumbers(5); // 추천 번호 5세트 표시
-        })
-        .catch(error => console.error('Error loading lotto data:', error));
-}
+        .then(data => analyzeLottoData(data))
+        .catch(error => console.error('Error fetching lotto data:', error));
+});
 
 function analyzeLottoData(data) {
-    const recentData = data.filter(draw => {
-        const drawDate = new Date(draw['날짜']);
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-        return drawDate > oneYearAgo;
-    });
+    const lastYearData = getLastYearData(data);
+    const mostFrequentNumbers = getMostFrequentNumbers(lastYearData, 5);
+    const unpickedNumbers = getUnpickedNumbers(lastYearData, mostFrequentNumbers, 5);
+    const patterns = analyzePatterns(lastYearData);
+    const consecutivePatterns = getConsecutivePatterns(lastYearData, 5);
 
-    const allNumbers = recentData.flatMap(draw => draw['번호']);
-    const topNumbers = getTopNumbers(allNumbers, 5);
-    displayTopNumbers(topNumbers);
-
-    displayPatternAnalysis(allNumbers);
+    displayResults(mostFrequentNumbers, unpickedNumbers, patterns, consecutivePatterns);
 }
 
-function getTopNumbers(numbers, count) {
-    const numberCounts = numbers.reduce((acc, num) => {
-        acc[num] = (acc[num] || 0) + 1;
-        return acc;
-    }, {});
+function getLastYearData(data) {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-    return Object.entries(numberCounts)
+    return data.filter(entry => new Date(entry.날짜) >= oneYearAgo);
+}
+
+function getMostFrequentNumbers(data, count) {
+    const numberFrequency = {};
+
+    data.forEach(entry => {
+        entry.번호.forEach(number => {
+            numberFrequency[number] = (numberFrequency[number] || 0) + 1;
+        });
+    });
+
+    return Object.entries(numberFrequency)
         .sort((a, b) => b[1] - a[1])
         .slice(0, count)
         .map(entry => parseInt(entry[0]));
 }
 
-function generateRecommendedNumbers(data) {
-    const drawnNumbers = data.map(draw => draw['번호']);
-    const allDrawnNumbers = new Set(drawnNumbers.flat().map(numbers => JSON.stringify(numbers)));
+function getUnpickedNumbers(data, mostFrequentNumbers, count) {
+    const allNumbers = Array.from({ length: 45 }, (_, i) => i + 1);
+    const pickedNumbers = new Set();
 
-    let newNumbers;
-    do {
-        newNumbers = Array.from({ length: 6 }, () => Math.floor(Math.random() * 45) + 1).sort((a, b) => a - b);
-    } while (allDrawnNumbers.has(JSON.stringify(newNumbers)));
+    data.forEach(entry => {
+        entry.번호.forEach(number => {
+            pickedNumbers.add(number);
+        });
+    });
 
-    return newNumbers;
-}
+    const unpickedNumbers = allNumbers.filter(number => !pickedNumbers.has(number));
+    const result = [];
 
-function displayTopNumbers(topNumbers) {
-    const topNumbersDiv = document.getElementById('topNumbers');
-    topNumbersDiv.innerHTML = topNumbers.map(num => `<span class="badge badge-primary badge-pill">${num}</span>`).join(' ');
-}
-
-function displayMultipleRecommendedNumbers(numSets) {
-    const multipleRecommendedNumbersDiv = document.getElementById('multipleRecommendedNumbers');
-    multipleRecommendedNumbersDiv.innerHTML = '';
-
-    for (let i = 0; i < numSets; i++) {
-        const recommendedNumbers = generateRecommendedNumbers(window.lottoData);
-        const numbersHtml = recommendedNumbers.map(num => `<span class="badge badge-secondary">${num}</span>`).join(' ');
-        multipleRecommendedNumbersDiv.innerHTML += `<div>세트 ${i + 1}: ${numbersHtml}</div>`;
+    while (result.length < count) {
+        const newNumber = Array.from({ length: 6 }, () => getRandomElement(unpickedNumbers));
+        if (newNumber.some(num => mostFrequentNumbers.includes(num))) {
+            result.push(newNumber);
+        }
     }
+
+    return result;
 }
 
-function displayPatternAnalysis(numbers) {
-    const evenOddCounts = { even: 0, odd: 0 };
-    const smallLargeCounts = { small: 0, large: 0 };
-
-    numbers.forEach(number => {
-        if (number % 2 === 0) evenOddCounts.even++;
-        else evenOddCounts.odd++;
-        if (number <= 22) smallLargeCounts.small++;
-        else smallLargeCounts.large++;
-    });
-
-    const totalNumbers = numbers.length;
-    const evenOddPercentages = {
-        even: (evenOddCounts.even / totalNumbers) * 100,
-        odd: (evenOddCounts.odd / totalNumbers) * 100
-    };
-    const smallLargePercentages = {
-        small: (smallLargeCounts.small / totalNumbers) * 100,
-        large: (smallLargeCounts.large / totalNumbers) * 100
-    };
-
-    const patternAnalysisDiv = document.getElementById('patternAnalysis');
-    patternAnalysisDiv.innerHTML = `
-        <p>짝수/홀수 비율: 짝수 - ${evenOddPercentages.even.toFixed(2)}%, 홀수 - ${evenOddPercentages.odd.toFixed(2)}%</p>
-        <p>작은/큰 번호 비율: 작은 번호 - ${smallLargePercentages.small.toFixed(2)}%, 큰 번호 - ${smallLargePercentages.large.toFixed(2)}%</p>
-    `;
+function getRandomElement(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function checkLottoNumber() {
-    const inputNumber = document.getElementById('lottoNumber').value.split(',').map(Number);
-    const lottoData = window.lottoData;
+function analyzePatterns(data) {
+    let oddCount = 0;
+    let evenCount = 0;
+    let highCount = 0;
+    let lowCount = 0;
 
-    const isWinningNumber = lottoData.some(draw => {
-        const drawnNumbers = draw['번호'];
-        return drawnNumbers.length === inputNumber.length && drawnNumbers.every((num, index) => num === inputNumber[index]);
+    data.forEach(entry => {
+        entry.번호.forEach(number => {
+            if (number % 2 === 0) {
+                evenCount++;
+            } else {
+                oddCount++;
+            }
+
+            if (number <= 22) {
+                lowCount++;
+            } else {
+                highCount++;
+            }
+        });
     });
 
-    const resultDiv = document.getElementById('result');
-    resultDiv.className = isWinningNumber ? 'alert alert-success' : 'alert alert-danger';
-    resultDiv.textContent = isWinningNumber ? '축하합니다! 이 번호는 당첨된 적이 있습니다.' : '죄송합니다, 이 번호는 당첨된 적이 없습니다.';
+    return {
+        oddEvenRatio: `Odd: ${oddCount}, Even: ${evenCount}`,
+        highLowRatio: `High: ${highCount}, Low: ${lowCount}`
+    };
+}
+
+function getConsecutivePatterns(data, count) {
+    const patternFrequency = {};
+
+    data.forEach(entry => {
+        const sortedNumbers = entry.번호.sort((a, b) => a - b);
+        for (let i = 0; i < sortedNumbers.length - 1; i++) {
+            if (sortedNumbers[i] + 1 === sortedNumbers[i + 1]) {
+                const pattern = `${sortedNumbers[i]}-${sortedNumbers[i + 1]}`;
+                patternFrequency[pattern] = (patternFrequency[pattern] || 0) + 1;
+            }
+        }
+    });
+
+    return Object.entries(patternFrequency)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, count)
+        .map(entry => entry[0]);
+}
+
+function displayResults(mostFrequentNumbers, unpickedNumbers, patterns, consecutivePatterns) {
+    const frequentNumbersList = document.getElementById('frequent-numbers');
+    mostFrequentNumbers.forEach(number => {
+        const listItem = document.createElement('li');
+        listItem.textContent = number;
+        frequentNumbersList.appendChild(listItem);
+    });
+
+    const unpickedNumbersList = document.getElementById('unpicked-numbers');
+    unpickedNumbers.forEach(numbers => {
+        const listItem = document.createElement('li');
+        listItem.textContent = numbers.join(', ');
+        unpickedNumbersList.appendChild(listItem);
+    });
+
+    document.getElementById('odd-even-ratio').textContent = patterns.oddEvenRatio;
+    document.getElementById('high-low-ratio').textContent = patterns.highLowRatio;
+
+    const consecutivePatternsList = document.getElementById('consecutive-patterns');
+    consecutivePatterns.forEach(pattern => {
+        const listItem = document.createElement('li');
+        listItem.textContent = pattern;
+        consecutivePatternsList.appendChild(listItem);
+    });
 }
