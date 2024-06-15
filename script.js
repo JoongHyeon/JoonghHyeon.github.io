@@ -8,6 +8,7 @@ function loadLottoData() {
         .then(data => {
             window.lottoData = data;
             analyzeLottoData(data);
+            displayMultipleRecommendedNumbers(5); // 추천 번호 5세트 표시
         })
         .catch(error => console.error('Error loading lotto data:', error));
 }
@@ -62,6 +63,17 @@ function displayTopNumbers(topNumbers) {
 function displayRecommendedNumbers(recommendedNumbers) {
     const recommendedNumbersDiv = document.getElementById('recommendedNumbers');
     recommendedNumbersDiv.innerHTML = recommendedNumbers.map(num => `<span class="badge badge-secondary">${num}</span>`).join(' ');
+}
+
+function displayMultipleRecommendedNumbers(numSets) {
+    const multipleRecommendedNumbersDiv = document.getElementById('multipleRecommendedNumbers');
+    multipleRecommendedNumbersDiv.innerHTML = '';
+
+    for (let i = 0; i < numSets; i++) {
+        const recommendedNumbers = generateRecommendedNumbers(window.lottoData);
+        const numbersHtml = recommendedNumbers.map(num => `<span class="badge badge-secondary">${num}</span>`).join(' ');
+        multipleRecommendedNumbersDiv.innerHTML += `<div>세트 ${i + 1}: ${numbersHtml}</div>`;
+    }
 }
 
 function displayPatternAnalysis(numbers) {
