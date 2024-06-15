@@ -25,9 +25,6 @@ function analyzeLottoData(data) {
     const topNumbers = getTopNumbers(allNumbers, 5);
     displayTopNumbers(topNumbers);
 
-    const recommendedNumbers = generateRecommendedNumbers(data);
-    displayRecommendedNumbers(recommendedNumbers);
-
     displayPatternAnalysis(allNumbers);
 }
 
@@ -40,7 +37,7 @@ function getTopNumbers(numbers, count) {
     return Object.entries(numberCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, count)
-        .map(entry => entry[0]);
+        .map(entry => parseInt(entry[0]));
 }
 
 function generateRecommendedNumbers(data) {
@@ -58,11 +55,6 @@ function generateRecommendedNumbers(data) {
 function displayTopNumbers(topNumbers) {
     const topNumbersDiv = document.getElementById('topNumbers');
     topNumbersDiv.innerHTML = topNumbers.map(num => `<span class="badge badge-primary badge-pill">${num}</span>`).join(' ');
-}
-
-function displayRecommendedNumbers(recommendedNumbers) {
-    const recommendedNumbersDiv = document.getElementById('recommendedNumbers');
-    recommendedNumbersDiv.innerHTML = recommendedNumbers.map(num => `<span class="badge badge-secondary">${num}</span>`).join(' ');
 }
 
 function displayMultipleRecommendedNumbers(numSets) {
